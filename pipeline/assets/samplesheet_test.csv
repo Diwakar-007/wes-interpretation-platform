@@ -1,0 +1,2 @@
+sample,fastq_1,fastq_2
+TEST01,/home/diwakar/ngs-data/test/fastq/test_R1.fastq.gz,/home/diwakar/ngs-data/test/fastq/test_R2.fastq.gz

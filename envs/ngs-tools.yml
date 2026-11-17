@@ -1,0 +1,27 @@
+# Conda environment with the command-line NGS tools.
+# Used for running tools interactively and for building the pipeline Docker image.
+# Create it with:  mamba env create -f envs/ngs-tools.yml
+# After it works, save exact versions with:  mamba env export -n ngs > envs/ngs-tools.lock.yml
+name: ngs
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  # --- QC & trimming ---
+  - fastqc
+  - fastp
+  - multiqc
+  # --- alignment & BAM handling ---
+  - bwa
+  - samtools
+  - htslib
+  # --- variant calling & VCF handling ---
+  - gatk4
+  - bcftools
+  # --- coverage & intervals ---
+  - mosdepth
+  - bedtools
+  # --- utilities ---
+  - seqtk
+  - pigz

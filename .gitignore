@@ -1,0 +1,30 @@
+# Large data never goes into git
+*.fastq
+*.fastq.gz
+*.fq.gz
+*.bam
+*.bai
+*.cram
+*.crai
+*.vcf
+*.vcf.gz
+*.tbi
+*.fasta
+*.fa
+
+# Nextflow
+work/
+.nextflow/
+.nextflow.log*
+results/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Editors / OS
+.vscode/
+.idea/
+*.Zone.Identifier
