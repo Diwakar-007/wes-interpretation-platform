@@ -1,0 +1,11 @@
+# Ensembl VEP in its own environment (its Perl dependencies clash with other tools).
+# The VEP version must match the cache release downloaded by 05_download_annotation.sh.
+name: vep
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - ensembl-vep=116.3
+  - htslib
+  - bcftools
+  - aria2      # parallel downloader for the large VEP cache

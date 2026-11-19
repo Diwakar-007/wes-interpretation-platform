@@ -4,10 +4,12 @@
  *   PREPARE_INTERVALS : pad capture targets, split into shards
  *   PREPROCESS        : FastQC, fastp, bwa mem, MarkDuplicates, BQSR
  *   CALL_VARIANTS     : HaplotypeCaller (gVCF, scattered) -> GenotypeGVCFs -> hard filters -> bcftools norm
+ *   VEP_ANNOTATE      : Ensembl VEP + ClinVar + AlphaMissense + REVEL (only if --vep_cache is set)
  *   QC                : mosdepth coverage + MultiQC report
  */
 
 include { PREPARE_INTERVALS } from './modules/prepare_intervals'
+include { VEP_ANNOTATE      } from './modules/vep'
 include { MOSDEPTH          } from './modules/mosdepth'
 include { MULTIQC           } from './modules/multiqc'
 include { PREPROCESS        } from './subworkflows/preprocess'
@@ -51,8 +53,19 @@ workflow {
 
     MOSDEPTH(PREPROCESS.out.bam, ch_bed)
 
-    ch_qc = PREPROCESS.out.qc
-        .mix(CALL_VARIANTS.out.qc, MOSDEPTH.out.qc)
-        .collect()
-    MULTIQC(ch_qc)
+    ch_qc = PREPROCESS.out.qc.mix(CALL_VARIANTS.out.qc, MOSDEPTH.out.qc)
+
+    if (params.vep_cache) {
+        VEP_ANNOTATE(
+            CALL_VARIANTS.out.vcf, ch_fasta, ch_fai,
+            channel.value(file(params.vep_cache, checkIfExists: true)),
+            channel.value(file(params.vep_plugins, checkIfExists: true)),
+            channel.value(tuple(file(params.clinvar, checkIfExists: true), file("${params.clinvar}.tbi", checkIfExists: true))),
+            channel.value(tuple(file(params.alphamissense, checkIfExists: true), file("${params.alphamissense}.tbi", checkIfExists: true))),
+            channel.value(tuple(file(params.revel, checkIfExists: true), file("${params.revel}.tbi", checkIfExists: true)))
+        )
+        ch_qc = ch_qc.mix(VEP_ANNOTATE.out.report)
+    }
+
+    MULTIQC(ch_qc.collect())
 }
