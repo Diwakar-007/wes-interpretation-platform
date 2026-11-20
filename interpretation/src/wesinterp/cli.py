@@ -41,6 +41,20 @@ def _load_hpo(hpo_dir: str):
     return ontology, annotations
 
 
+def _resource_versions(args: argparse.Namespace) -> dict[str, str]:
+    """Versions of the databases used, read from the VERSION.txt files written at download time."""
+    from pathlib import Path
+    versions = {"wesinterp": __version__}
+    for name, path in (("ClinVar", args.clinvar_index), ("HPO", args.hpo_dir)):
+        if not path:
+            continue
+        folder = Path(path) if Path(path).is_dir() else Path(path).parent
+        vfile = folder / "VERSION.txt"
+        if vfile.exists():
+            versions[name] = vfile.read_text().split("=", 1)[-1].split(":", 1)[-1].strip()
+    return versions
+
+
 def _resolve_terms(raw: str, ontology) -> list[str]:
     terms = []
     for t in (x.strip() for x in raw.split(",") if x.strip()):
@@ -64,6 +78,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
     results = [classify_variant(v, ctx) for v in read_vep_vcf(args.vcf, pass_only=not args.all_filters)]
 
     candidates = []
+    patient_terms: list[str] = []
     if annotations:
         from .prioritize import prioritize
         patient_terms = _resolve_terms(args.hpo_terms or "", ontology)
@@ -95,6 +110,8 @@ def cmd_classify(args: argparse.Namespace) -> int:
     if args.json:
         with open(args.json, "w") as fh:
             json.dump({
+                "patient_terms": [{"id": t, "name": ontology.name(t)} for t in patient_terms] if ontology else [],
+                "resources": _resource_versions(args),
                 "variants": [{
                     **{k: getattr(r.variant, k) for k in r.variant.__dataclass_fields__},
                     "evidence": [{"code": e.label, "points": e.points, "reason": e.reason} for e in r.evidence],
@@ -103,9 +120,10 @@ def cmd_classify(args: argparse.Namespace) -> int:
                 } for r in results],
                 "candidates": [{
                     "gene": c.gene, "score": c.score, "phenotype_score": round(c.phenotype_score, 4),
-                    "inheritance": c.modes, "inheritance_fit": c.inheritance_fit,
+                    "inheritance": c.modes, "inheritance_fit": c.inheritance_fit, "fit_weight": c.fit_weight,
                     "variants": [r.variant.key for r in c.variants],
-                    "matched_phenotypes": [{"patient_term": q, "matched_term": m, "ic": round(ic, 3)}
+                    "matched_phenotypes": [{"patient_term": q, "matched_term": m,
+                                            "matched_name": ontology.name(m) if m else "", "ic": round(ic, 3)}
                                            for q, m, ic in c.matched_terms],
                 } for c in candidates],
             }, fh, indent=1)
@@ -122,6 +140,16 @@ def cmd_classify(args: argparse.Namespace) -> int:
         for c in candidates[:5]:
             print(f"  {c.gene:10s} score={c.score:.3f} pheno={c.phenotype_score:.2f} "
                   f"[{'/'.join(c.modes) or '?'}] {c.inheritance_fit}", file=sys.stderr)
+    return 0
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    from .report import build_report
+    ctx = build_report(args.json, args.out_html, args.out_pdf, sample_id=args.sample_id, sex=args.sex,
+                       indication=args.indication, sample_dir=args.sample_dir)
+    f = ctx["findings"]
+    print(f"Report {ctx['report_id']}: {len(f['primary'])} primary, {len(f['carrier'])} carrier, "
+          f"{len(f['other'])} other candidates -> {args.out_pdf or args.out_html}", file=sys.stderr)
     return 0
 
 
@@ -158,6 +186,16 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--hpo-terms", help="patient phenotypes, comma-separated, e.g. HP:0001250,HP:0001263")
     c.add_argument("--candidates", help="output TSV of ranked candidate genes")
     c.set_defaults(func=cmd_classify)
+
+    r = sub.add_parser("report", help="generate an HTML/PDF report from classify --json output")
+    r.add_argument("--json", required=True, help="classification JSON from `classify --json`")
+    r.add_argument("--out-html", required=True)
+    r.add_argument("--out-pdf")
+    r.add_argument("--sample-id", default="SAMPLE")
+    r.add_argument("--sex", default="Not provided")
+    r.add_argument("--indication", default="")
+    r.add_argument("--sample-dir", help="pipeline output folder for the sample (adds QC metrics)")
+    r.set_defaults(func=cmd_report)
 
     s = sub.add_parser("hpo-search", help="search HPO terms by name (autocomplete)")
     s.add_argument("query")

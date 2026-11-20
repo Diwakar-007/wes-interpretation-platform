@@ -9,3 +9,7 @@ dependencies:
   - cyvcf2        # fast VCF parsing (htslib based)
   - pytest
   - pip
+  # reporting
+  - jinja2                 # HTML templates
+  - weasyprint             # HTML/CSS -> PDF
+  - fonts-conda-ecosystem  # fonts for PDF rendering inside the env

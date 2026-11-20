@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WES Report {{ sample_id }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 15mm 20mm 15mm;
+    @bottom-left  { content: "Sample {{ sample_id }} · Report {{ report_id }} · Research use only"; font-family: "DejaVu Sans", sans-serif; font-size: 7.5pt; color: #6b7280; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font-family: "DejaVu Sans", sans-serif; font-size: 7.5pt; color: #6b7280; }
+  }
+  :root {
+    --ink: #111827; --muted: #6b7280; --line: #e5e7eb; --soft: #f9fafb; --brand: #0f4c5c;
+    --p: #b91c1c; --lp: #ea580c; --vus: #a16207; --lb: #2563eb; --b: #15803d;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "DejaVu Sans", sans-serif; font-size: 8.8pt; color: var(--ink); line-height: 1.45; margin: 0; }
+  h1 { font-size: 15pt; white-space: nowrap; margin: 0; color: var(--brand); letter-spacing: -0.2pt; }
+  h2 { font-size: 10.5pt; color: var(--brand); margin: 16pt 0 6pt; padding-bottom: 3pt; border-bottom: 1.5pt solid var(--brand);
+       text-transform: uppercase; letter-spacing: 0.6pt; }
+  h3 { font-size: 9.5pt; margin: 0 0 4pt; }
+  .muted { color: var(--muted); }
+  .mono { font-family: "DejaVu Sans Mono", monospace; font-size: 8pt; }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 8pt; border-bottom: 3pt solid var(--brand); }
+  .header .meta { text-align: right; font-size: 8pt; color: var(--muted); }
+  .ruo { margin-top: 6pt; background: #fef3c7; border: 1pt solid #f59e0b; color: #78350f; padding: 4pt 8pt; font-size: 7.8pt; border-radius: 3pt; }
+
+  .grid { display: flex; gap: 10pt; margin-top: 10pt; }
+  .card { flex: 1; border: 1pt solid var(--line); border-radius: 4pt; padding: 7pt 9pt; background: var(--soft); }
+  .card dt { font-size: 7.2pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4pt; }
+  .card dd { margin: 0 0 4pt; font-weight: bold; }
+  .terms span { display: inline-block; background: #e0f2f1; color: var(--brand); border-radius: 8pt; padding: 1pt 6pt; margin: 1pt 2pt 1pt 0; font-size: 7.6pt; }
+
+  .result { margin-top: 12pt; border-left: 4pt solid var(--brand); background: #f0f7f8; padding: 8pt 10pt; }
+  .result.positive { border-color: var(--p); background: #fef2f2; }
+  .result.vus { border-color: var(--vus); background: #fefce8; }
+  .result .headline { font-size: 11pt; font-weight: bold; margin-bottom: 2pt; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 4pt; }
+  th { text-align: left; font-size: 7.2pt; text-transform: uppercase; letter-spacing: 0.3pt; color: var(--muted);
+       border-bottom: 1pt solid var(--ink); padding: 3pt 4pt; }
+  td { border-bottom: 0.5pt solid var(--line); padding: 4pt; vertical-align: top; }
+  tr { page-break-inside: avoid; }
+  h2 { page-break-after: avoid; }
+  .keep { page-break-inside: avoid; }
+
+  .badge { display: inline-block; padding: 1.5pt 6pt; border-radius: 3pt; color: white; font-weight: bold; font-size: 7.4pt; white-space: nowrap; }
+  .badge.p { background: var(--p); } .badge.lp { background: var(--lp); } .badge.vus { background: var(--vus); }
+  .badge.lb { background: var(--lb); } .badge.b { background: var(--b); }
+  .tier { font-size: 7pt; color: var(--muted); text-transform: uppercase; }
+  .gene { font-weight: bold; font-style: italic; font-size: 9.5pt; }
+
+  .variant-card { border: 1pt solid var(--line); border-radius: 4pt; padding: 8pt 10pt; margin-top: 8pt; page-break-inside: avoid; }
+  .variant-card .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .facts { display: flex; flex-wrap: wrap; gap: 4pt 16pt; margin: 6pt 0; font-size: 8pt; }
+  .facts b { color: var(--muted); font-weight: normal; }
+  .evidence td:first-child { width: 22%; font-weight: bold; white-space: nowrap; }
+  .pts { text-align: right; width: 8%; font-weight: bold; }
+  .pts.neg { color: var(--b); } .pts.pos { color: var(--p); }
+  .warn { margin-top: 5pt; padding: 3pt 6pt; background: #fff7ed; border-left: 3pt solid var(--lp); font-size: 7.8pt; }
+
+  .qc { display: flex; flex-wrap: wrap; gap: 8pt; }
+  .qc .m { flex: 1 1 22%; border: 1pt solid var(--line); border-radius: 4pt; padding: 6pt 8pt; }
+  .qc .v { font-size: 13pt; font-weight: bold; color: var(--brand); }
+  .qc .l { font-size: 7.2pt; color: var(--muted); text-transform: uppercase; }
+
+  .small { font-size: 7.8pt; }
+  ul.tight { margin: 2pt 0; padding-left: 12pt; } ul.tight li { margin: 1pt 0; }
+  .signoff { margin-top: 14pt; display: flex; gap: 20pt; }
+  .signoff div { flex: 1; border-top: 0.8pt solid var(--ink); padding-top: 3pt; font-size: 7.6pt; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ===================== HEADER ===================== -->
+<div class="header">
+  <div>
+    <h1>Whole Exome Sequencing Report</h1>
+    <div class="muted">Germline variant analysis · phenotype-driven interpretation</div>
+  </div>
+  <div class="meta">
+    Report ID <b>{{ report_id }}</b><br>
+    Generated {{ generated }}
+  </div>
+</div>
+<div class="ruo"><b>FOR RESEARCH AND EDUCATIONAL USE ONLY.</b> Produced by an automated pipeline that has not been clinically validated. Not for diagnostic or treatment decisions.</div>
+
+<div class="grid">
+  <dl class="card">
+    <dt>Sample ID</dt><dd>{{ sample_id }}</dd>
+    <dt>Sex</dt><dd>{{ sex }}</dd>
+    <dt>Test</dt><dd>Whole exome sequencing (germline)</dd>
+  </dl>
+  <dl class="card" style="flex: 2">
+    <dt>Clinical indication</dt><dd style="font-weight: normal">{{ indication or "Not provided" }}</dd>
+    <dt>Phenotype (HPO terms)</dt>
+    <dd class="terms">
+      {% for t in patient_terms %}<span>{{ t.name }} <span class="mono" style="background:none;padding:0;margin:0">{{ t.id }}</span></span>{% else %}<span class="muted" style="background:none">None provided</span>{% endfor %}
+    </dd>
+  </dl>
+</div>
+
+<!-- ===================== RESULT SUMMARY ===================== -->
+{% set reportable = findings.primary | selectattr("tier", "equalto", "Reportable") | list %}
+{% set vus_interest = findings.primary | selectattr("tier", "equalto", "VUS of interest") | list %}
+{% if reportable %}
+<div class="result positive">
+  <div class="headline">POSITIVE: {{ reportable | length }} pathogenic / likely pathogenic variant{{ "s" if reportable | length > 1 }} identified</div>
+  In {{ reportable | map(attribute="candidate.gene") | unique | join(", ") }}, consistent with the reported phenotype and inheritance. See details below.
+</div>
+{% elif vus_interest %}
+<div class="result vus">
+  <div class="headline">UNCERTAIN: variant(s) of uncertain significance in phenotype-matched gene(s)</div>
+  {{ vus_interest | map(attribute="candidate.gene") | unique | join(", ") }}: strong phenotype match and fitting inheritance, but the
+  automated evidence does not reach a pathogenic classification. Expert review and additional evidence are required.
+</div>
+{% else %}
+<div class="result">
+  <div class="headline">NEGATIVE: no reportable variants identified</div>
+  No pathogenic, likely pathogenic or phenotype-matched uncertain variants were found. This does not exclude a genetic cause (see Limitations).
+</div>
+{% endif %}
+
+<!-- ===================== PRIMARY FINDINGS ===================== -->
+<h2>Primary findings</h2>
+{% if findings.primary %}
+<table>
+  <tr><th>Gene</th><th>Variant</th><th>Zygosity</th><th>Inheritance</th><th>Classification</th><th>Phenotype match</th></tr>
+  {% for f in findings.primary %}
+  <tr>
+    <td><span class="gene">{{ f.candidate.gene }}</span><br><span class="tier">{{ f.tier }}</span></td>
+    <td><span class="mono">{{ f.variant.transcript }}</span><br>{{ f.variant.hgvsc }}<br><b>{{ f.variant.hgvsp or "" }}</b></td>
+    <td>{{ f.zygosity }}</td>
+    <td>{{ f.candidate.inheritance | join("/") or "?" }}<br><span class="muted small">{{ f.candidate.inheritance_fit }}</span></td>
+    <td><span class="badge {{ class_css[f.variant.classification] }}">{{ f.variant.classification }}</span><br><span class="muted small">{{ f.variant.points }} points</span></td>
+    <td>{{ "%.0f" | format(f.candidate.phenotype_score * 100) }}%</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="muted">None.</p>
+{% endif %}
+
+<!-- ===================== VARIANT DETAILS ===================== -->
+{% for f in findings.primary %}
+{% set v = f.variant %}
+<div class="variant-card">
+  <div class="top">
+    <h3><span class="gene">{{ f.candidate.gene }}</span> {{ v.hgvsc }} {{ v.hgvsp or "" }}</h3>
+    <span class="badge {{ class_css[v.classification] }}">{{ v.classification }}</span>
+  </div>
+  <div class="facts">
+    <span><b>Position (GRCh38)</b> {{ v.chrom }}:{{ v.pos }} {{ v.ref }}&gt;{{ v.alt }}</span>
+    <span><b>Transcript</b> {{ v.transcript }}</span>
+    <span><b>Consequence</b> {{ v.consequence | join(", ") | replace("_", " ") }}</span>
+    <span><b>Zygosity</b> {{ f.zygosity }}</span>
+    <span><b>dbSNP</b> {{ v.rsid or "-" }}</span>
+    <span><b>gnomAD popmax AF</b> {{ v.popmax_af | af }}</span>
+    <span><b>REVEL</b> {{ v.revel if v.revel is not none else "-" }}</span>
+    <span><b>AlphaMissense</b> {{ v.am_class | replace("_", " ") or "-" }}</span>
+    <span><b>ClinVar</b> {{ v.clinvar_sig | replace("_", " ") or "not reported" }}{% if v.clinvar_review %} ({{ v.clinvar_review | replace("_", " ") | replace("&", "") }}){% endif %}</span>
+  </div>
+  <table class="evidence">
+    <tr><th>ACMG criterion</th><th>Evidence</th><th class="pts">Points</th></tr>
+    {% for e in v.evidence %}
+    <tr><td>{{ e.code }}</td><td>{{ e.reason }}</td><td class="pts {{ 'neg' if e.points < 0 else 'pos' }}">{{ "%+d" | format(e.points) }}</td></tr>
+    {% else %}
+    <tr><td colspan="3" class="muted">No automated criteria met.</td></tr>
+    {% endfor %}
+    <tr><td></td><td style="text-align:right"><b>Total</b></td><td class="pts">{{ "%+d" | format(v.points) }}</td></tr>
+  </table>
+  {% if f.candidate.matched_phenotypes %}
+  <div class="small" style="margin-top:4pt"><b class="muted" style="font-weight:normal">Phenotype overlap:</b>
+    {{ f.candidate.matched_phenotypes | selectattr("ic", "gt", 0) | map(attribute="matched_name") | unique | join(", ") }}
+  </div>
+  {% endif %}
+  {% if v.clinvar_concordance == "discordant" %}
+  <div class="warn"><b>Discordant with ClinVar:</b> ClinVar classifies this variant as <b>{{ v.clinvar_sig | replace("_", " ") }}</b> with a high review status.
+    Automated criteria cannot use functional, segregation or case-level evidence. Manual review is required.</div>
+  {% endif %}
+</div>
+{% endfor %}
+
+<!-- ===================== CARRIER ===================== -->
+{% if findings.carrier %}
+<div class="keep">
+<h2>Carrier findings</h2>
+<p class="small muted">Heterozygous pathogenic/likely pathogenic variants in autosomal recessive genes. Not expected to cause disease alone; relevant for reproductive counselling.</p>
+<table>
+  <tr><th>Gene</th><th>Variant</th><th>Zygosity</th><th>Classification</th></tr>
+  {% for f in findings.carrier %}
+  <tr><td class="gene">{{ f.candidate.gene }}</td><td>{{ f.variant.hgvsc }} {{ f.variant.hgvsp or "" }}</td><td>{{ f.zygosity }}</td>
+      <td><span class="badge {{ class_css[f.variant.classification] }}">{{ f.variant.classification }}</span></td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endif %}
+
+<!-- ===================== OTHER CANDIDATES ===================== -->
+{% if findings.other %}
+<div class="keep">
+<h2>Other ranked candidates</h2>
+<p class="small muted">Next highest-ranked genes by phenotype match, variant class and inheritance fit. Listed for analyst review; not reported as findings.</p>
+<table>
+  <tr><th>Rank</th><th>Gene</th><th>Variant</th><th>Zygosity</th><th>Class</th><th>Pheno match</th><th>Inheritance fit</th></tr>
+  {% for f in findings.other %}
+  <tr><td>{{ f.rank }}</td><td class="gene">{{ f.candidate.gene }}</td><td>{{ f.variant.hgvsp or f.variant.hgvsc }}</td><td>{{ f.zygosity }}</td>
+      <td><span class="badge {{ class_css[f.variant.classification] }}">{{ f.variant.classification }}</span></td>
+      <td>{{ "%.0f" | format(f.candidate.phenotype_score * 100) }}%</td><td class="small">{{ f.candidate.inheritance_fit }}</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endif %}
+
+<!-- ===================== QC ===================== -->
+<h2>Sequencing quality</h2>
+{% if qc %}
+<div class="qc">
+  <div class="m"><div class="v">{{ qc.mean_coverage | num }}x</div><div class="l">Mean target coverage</div></div>
+  <div class="m"><div class="v">{{ qc.pct_covered["20X"] | num if qc.pct_covered else "-" }}%</div><div class="l">Targets ≥ 20x</div></div>
+  <div class="m"><div class="v">{{ qc.pct_duplication | num(2) }}%</div><div class="l">Duplication</div></div>
+  <div class="m"><div class="v">{{ "{:,}".format(qc.read_pairs) if qc.read_pairs else "-" }}</div><div class="l">Read pairs</div></div>
+  <div class="m"><div class="v">{{ "{:,}".format(qc.snvs) if qc.snvs is defined else "-" }}</div><div class="l">PASS SNVs</div></div>
+  <div class="m"><div class="v">{{ "{:,}".format(qc.indels) if qc.indels is defined else "-" }}</div><div class="l">PASS indels</div></div>
+  <div class="m"><div class="v">{{ qc.ts_tv | num(2) }}</div><div class="l">Ts/Tv ratio</div></div>
+  <div class="m"><div class="v">{{ "{:,}".format(n_variants) }}</div><div class="l">Annotated records</div></div>
+</div>
+{% if qc.mean_coverage is defined and qc.mean_coverage < 20 %}
+<div class="warn"><b>Low coverage:</b> mean target coverage is below 20x. Variants may be missed and calls may be less reliable.</div>
+{% endif %}
+{% else %}
+<p class="muted small">QC metrics not available (analysis started from a VCF).</p>
+{% endif %}
+
+<!-- ===================== METHODS ===================== -->
+<h2>Methods</h2>
+<div class="small">
+  <p><b>Sequence analysis.</b> Reads were trimmed with fastp and aligned to GRCh38 (GATK resource bundle, ALT-aware) with BWA-MEM.
+  Duplicates were marked (GATK MarkDuplicates), base qualities recalibrated (BQSR), and variants called with GATK HaplotypeCaller
+  in gVCF mode over capture targets ±{{ 100 }} bp, followed by GenotypeGVCFs and GATK hard filters. Variants were normalised with bcftools.</p>
+  <p><b>Annotation.</b> Ensembl VEP (cache release 116) with MANE Select transcripts, gnomAD v4.1 exome and genome allele frequencies,
+  ClinVar, REVEL and AlphaMissense.</p>
+  <p><b>Classification.</b> ACMG/AMP 2015 criteria with ClinGen SVI refinements, combined using the Bayesian points system
+  (Tavtigian et al. 2020: Pathogenic ≥10, Likely pathogenic 6–9, VUS 0–5, Likely benign −1 to −6, Benign ≤−7).
+  Automated criteria: PVS1 (LOEUF &lt; {{ thresholds.loeuf_max }}), PS1/PM5 (ClinVar), PM2_Supporting (popmax AF &lt; {{ thresholds.pm2_af }}),
+  PM4, PP3/BP4 (REVEL thresholds from Pejaver et al. 2022), BA1 (&gt; {{ thresholds.ba1_af * 100 }}%), BS1 (inheritance-aware:
+  {{ thresholds.bs1_af_dominant * 100 }}% dominant, {{ thresholds.bs1_af_recessive * 100 }}% recessive, {{ thresholds.bs1_af * 100 }}% otherwise), BP7.</p>
+  <p><b>Phenotype prioritisation.</b> Genes were ranked by Resnik semantic similarity between the patient's HPO terms and
+  HPO gene annotations, combined with variant class and fit to the gene's Mendelian inheritance mode and the observed zygosity.</p>
+  <p class="muted">Resources:
+    {% for k, v in resources.items() %}{{ k }} {{ v }}{{ ", " if not loop.last }}{% endfor %}.</p>
+</div>
+
+<!-- ===================== LIMITATIONS ===================== -->
+<h2>Limitations</h2>
+<ul class="tight small">
+  <li>Exome sequencing does not reliably detect copy-number variants, structural variants, repeat expansions, deep intronic or regulatory variants, mosaicism, or variants in poorly covered or highly homologous regions.</li>
+  <li>Automated classification cannot apply criteria that require case-level data (de novo status, segregation, functional studies, case-control data). Results flagged as discordant with ClinVar require expert review.</li>
+  <li>Allele-frequency thresholds are generic or inheritance-based, not gene-specific (ClinGen VCEP) values. Splicing impact beyond canonical splice sites is not assessed.</li>
+  <li>Phase of multiple heterozygous variants in the same gene is unknown without parental testing.</li>
+  <li>Classifications reflect knowledge at the time of analysis and may change.</li>
+</ul>
+
+<div class="signoff">
+  <div>Analysed by (automated pipeline) · wesinterp {{ resources.wesinterp }}</div>
+  <div>Reviewed by</div>
+  <div>Date</div>
+</div>
+
+</body>
+</html>
