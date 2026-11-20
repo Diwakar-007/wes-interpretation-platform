@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wesinterp"
+version = "0.1.0"
+description = "Automated ACMG/AMP germline variant classification for WES (Bayesian points framework)"
+requires-python = ">=3.11"
+# cyvcf2 is installed from bioconda (envs/wesapp.yml), not pip
+dependencies = []
+
+[project.scripts]
+wesinterp = "wesinterp.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,11 @@
+# Python environment for the interpretation engine (and later the web app).
+# Create with: mamba env create -f envs/wesapp.yml && conda activate wesapp && pip install -e interpretation
+name: wesapp
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - cyvcf2        # fast VCF parsing (htslib based)
+  - pytest
+  - pip
