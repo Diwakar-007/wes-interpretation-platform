@@ -27,6 +27,7 @@ class Variant:
     genotype: str = "."
     gene: str = ""
     transcript: str = ""                    # MANE Select RefSeq ID when available
+    biotype: str = "protein_coding"
     consequence: list[str] = field(default_factory=list)
     hgvsc: str = ""
     hgvsp: str = ""

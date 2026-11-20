@@ -26,7 +26,18 @@ class Context:
 
     loeuf: dict[str, float] = field(default_factory=dict)
     clinvar_protein: ClinVarProteinIndex = field(default_factory=dict)
+    gene_modes: dict[str, set[str]] = field(default_factory=dict)   # e.g. {"CFTR": {"AR"}}
     thresholds: Thresholds = DEFAULT_THRESHOLDS
+
+    def bs1_threshold(self, gene: str) -> tuple[float, str]:
+        """BS1 allele-frequency cut-off for a gene, based on its known inheritance modes."""
+        modes = self.gene_modes.get(gene, set())
+        t = self.thresholds
+        if modes and modes <= {"AR", "XLR"}:
+            return t.bs1_af_recessive, "recessive"
+        if modes and modes <= {"AD", "XLD"}:
+            return t.bs1_af_dominant, "dominant"
+        return t.bs1_af, "mixed/unknown inheritance" if modes else "inheritance unknown"
 
 
 def _has(variant: Variant, consequences: set[str]) -> bool:
@@ -138,10 +149,10 @@ def ba1(v: Variant, ctx: Context) -> Evidence | None:
 
 
 def bs1(v: Variant, ctx: Context) -> Evidence | None:
-    """Allele frequency greater than expected for the disorder (generic cut-off; not applied with BA1)."""
-    t = ctx.thresholds
-    if v.popmax_af is not None and t.bs1_af < v.popmax_af <= t.ba1_af:
-        return Evidence("BS1", "Strong", f"gnomAD popmax AF {v.popmax_af:.4f} > {t.bs1_af}")
+    """Allele frequency greater than expected for the disorder (inheritance-aware; not applied with BA1)."""
+    cutoff, basis = ctx.bs1_threshold(v.gene)
+    if v.popmax_af is not None and cutoff < v.popmax_af <= ctx.thresholds.ba1_af:
+        return Evidence("BS1", "Strong", f"gnomAD popmax AF {v.popmax_af:.4f} > {cutoff} ({basis})")
     return None
 
 

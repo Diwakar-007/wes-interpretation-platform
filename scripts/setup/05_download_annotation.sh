@@ -107,7 +107,21 @@ revel)
   touch "$D/.done"
   ;;
 
-*) echo "Unknown step: $step (use: cache clinvar constraint alphamissense revel)"; exit 1 ;;
+hpo)
+  # Human Phenotype Ontology: ontology + gene/disease annotations (incl. inheritance modes)
+  D="$A/hpo"; mkdir -p "$D"
+  if done_marker "$D"; then echo ">> HPO already ready"; continue; fi
+  echo ">> HPO..."
+  H=https://github.com/obophenotype/human-phenotype-ontology/releases/latest/download
+  for f in hp.obo genes_to_phenotype.txt genes_to_disease.txt phenotype.hpoa; do
+    wget -q -O "$D/$f" "$H/$f"
+  done
+  grep -m1 '^data-version' "$D/hp.obo" > "$D/VERSION.txt"
+  touch "$D/.done"
+  echo "   $(cat "$D/VERSION.txt")"
+  ;;
+
+*) echo "Unknown step: $step (use: cache clinvar constraint alphamissense revel hpo)"; exit 1 ;;
 esac
 done
 

@@ -15,7 +15,14 @@ POPMAX_POPULATIONS = ("AFR", "AMR", "EAS", "NFE", "SAS")
 class Thresholds:
     # --- population frequency ---
     ba1_af: float = 0.05        # BA1: > 5% in any continental population (ClinGen SVI, Ghosh 2018)
-    bs1_af: float = 0.01        # BS1: higher than expected for a rare Mendelian disorder (generic default)
+    # BS1: allele frequency higher than expected for the disorder. Depends on inheritance:
+    #  - recessive: healthy carriers are common (CFTR p.Phe508del is ~1.5% in Europeans), so the
+    #    cut-off must be high. 0.02 ~ the allele frequency behind a 1/2500 recessive disease.
+    #  - dominant: one allele causes disease, so even 0.1% is too common for a rare disorder.
+    #  - unknown / mixed inheritance: generic 1%.
+    bs1_af: float = 0.01
+    bs1_af_recessive: float = 0.02
+    bs1_af_dominant: float = 0.001
     pm2_af: float = 0.0001      # PM2_Supporting: absent, or extremely rare (ClinGen SVI 2020 downgrade)
 
     # --- PP3 / BP4 from REVEL (Pejaver et al. 2022, AJHG 109:2163) ---

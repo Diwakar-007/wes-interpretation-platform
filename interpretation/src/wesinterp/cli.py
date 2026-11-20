@@ -31,12 +31,55 @@ def _fmt(x) -> str:
     return str(x)
 
 
+def _load_hpo(hpo_dir: str):
+    from pathlib import Path
+
+    from .hpo import load_gene_annotations, load_ontology
+    ontology = load_ontology(Path(hpo_dir) / "hp.obo")
+    annotations = load_gene_annotations(Path(hpo_dir) / "genes_to_phenotype.txt", ontology,
+                                        Path(hpo_dir) / "genes_to_disease.txt")
+    return ontology, annotations
+
+
+def _resolve_terms(raw: str, ontology) -> list[str]:
+    terms = []
+    for t in (x.strip() for x in raw.split(",") if x.strip()):
+        resolved = ontology.resolve(t)
+        if resolved:
+            terms.append(resolved)
+        else:
+            print(f"  warning: unknown or obsolete HPO term {t}, ignored", file=sys.stderr)
+    return terms
+
+
 def cmd_classify(args: argparse.Namespace) -> int:
+    ontology = annotations = None
+    if args.hpo_dir:
+        ontology, annotations = _load_hpo(args.hpo_dir)
     ctx = Context(
         loeuf=load_loeuf(args.loeuf) if args.loeuf else {},
         clinvar_protein=load_clinvar_protein_index(args.clinvar_index) if args.clinvar_index else {},
+        gene_modes=annotations.gene_modes if annotations else {},
     )
     results = [classify_variant(v, ctx) for v in read_vep_vcf(args.vcf, pass_only=not args.all_filters)]
+
+    candidates = []
+    if annotations:
+        from .prioritize import prioritize
+        patient_terms = _resolve_terms(args.hpo_terms or "", ontology)
+        candidates = prioritize(results, patient_terms, annotations, ontology)
+        if args.candidates:
+            with open(args.candidates, "w", newline="") as fh:
+                w = csv.writer(fh, delimiter="\t")
+                w.writerow(["rank", "gene", "score", "phenotype_score", "inheritance", "inheritance_fit",
+                            "best_class", "variants", "matched_phenotypes"])
+                for i, c in enumerate(candidates, 1):
+                    w.writerow([i, c.gene, c.score, f"{c.phenotype_score:.3f}", "/".join(c.modes),
+                                c.inheritance_fit, c.variants[0].classification,
+                                "; ".join(f"{r.variant.hgvsp or r.variant.hgvsc} ({r.variant.genotype}, "
+                                          f"{r.classification})" for r in c.variants),
+                                "; ".join(f"{ontology.name(q)} ~ {ontology.name(m)}" for q, m, ic in c.matched_terms
+                                          if m and ic > 0)])
 
     with open(args.out, "w", newline="") as fh:
         w = csv.writer(fh, delimiter="\t")
@@ -51,12 +94,21 @@ def cmd_classify(args: argparse.Namespace) -> int:
 
     if args.json:
         with open(args.json, "w") as fh:
-            json.dump([{
-                **{k: getattr(r.variant, k) for k in r.variant.__dataclass_fields__},
-                "evidence": [{"code": e.label, "points": e.points, "reason": e.reason} for e in r.evidence],
-                "points": r.points, "classification": r.classification,
-                "clinvar_concordance": r.clinvar_concordance,
-            } for r in results], fh, indent=1)
+            json.dump({
+                "variants": [{
+                    **{k: getattr(r.variant, k) for k in r.variant.__dataclass_fields__},
+                    "evidence": [{"code": e.label, "points": e.points, "reason": e.reason} for e in r.evidence],
+                    "points": r.points, "classification": r.classification,
+                    "clinvar_concordance": r.clinvar_concordance,
+                } for r in results],
+                "candidates": [{
+                    "gene": c.gene, "score": c.score, "phenotype_score": round(c.phenotype_score, 4),
+                    "inheritance": c.modes, "inheritance_fit": c.inheritance_fit,
+                    "variants": [r.variant.key for r in c.variants],
+                    "matched_phenotypes": [{"patient_term": q, "matched_term": m, "ic": round(ic, 3)}
+                                           for q, m, ic in c.matched_terms],
+                } for c in candidates],
+            }, fh, indent=1)
 
     counts = Counter(r.classification for r in results)
     print(f"Classified {len(results)} variant-gene records -> {args.out}", file=sys.stderr)
@@ -65,6 +117,21 @@ def cmd_classify(args: argparse.Namespace) -> int:
     discordant = sum(r.clinvar_concordance == "discordant" for r in results)
     if discordant:
         print(f"  ! {discordant} discordant with ClinVar (>=2 stars): review manually", file=sys.stderr)
+    if candidates:
+        print("Top candidate genes:", file=sys.stderr)
+        for c in candidates[:5]:
+            print(f"  {c.gene:10s} score={c.score:.3f} pheno={c.phenotype_score:.2f} "
+                  f"[{'/'.join(c.modes) or '?'}] {c.inheritance_fit}", file=sys.stderr)
+    return 0
+
+
+def cmd_hpo_search(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from .hpo import load_ontology
+    ontology = load_ontology(Path(args.hpo_dir) / "hp.obo")
+    for tid, name in ontology.search(args.query, limit=args.limit):
+        print(f"{tid}\t{name}")
     return 0
 
 
@@ -86,7 +153,17 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--loeuf", help="gnomAD constraint TSV (enables PVS1)")
     c.add_argument("--clinvar-index", help="ClinVar protein index (enables PS1/PM5)")
     c.add_argument("--all-filters", action="store_true", help="include non-PASS variants")
+    c.add_argument("--hpo-dir", help="HPO folder (hp.obo, genes_to_phenotype.txt): enables inheritance-aware "
+                                     "BS1 and gene ranking")
+    c.add_argument("--hpo-terms", help="patient phenotypes, comma-separated, e.g. HP:0001250,HP:0001263")
+    c.add_argument("--candidates", help="output TSV of ranked candidate genes")
     c.set_defaults(func=cmd_classify)
+
+    s = sub.add_parser("hpo-search", help="search HPO terms by name (autocomplete)")
+    s.add_argument("query")
+    s.add_argument("--hpo-dir", required=True)
+    s.add_argument("--limit", type=int, default=15)
+    s.set_defaults(func=cmd_hpo_search)
 
     b = sub.add_parser("build-clinvar-index", help="build the PS1/PM5 index from ClinVar variant_summary")
     b.add_argument("--variant-summary", required=True)

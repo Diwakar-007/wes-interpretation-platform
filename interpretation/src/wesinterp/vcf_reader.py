@@ -47,6 +47,7 @@ def variant_from_csq(chrom: str, pos: int, ref: str, alt: str, genotype: str, cs
         chrom=chrom, pos=pos, ref=ref, alt=alt, genotype=genotype,
         gene=csq.get("SYMBOL", ""),
         transcript=csq.get("MANE_SELECT") or csq.get("Feature", ""),
+        biotype=csq.get("BIOTYPE", ""),
         consequence=[c for c in csq.get("Consequence", "").split("&") if c],
         hgvsc=_strip_hgvs(csq.get("HGVSc", "")),
         hgvsp=_strip_hgvs(csq.get("HGVSp", "")),
